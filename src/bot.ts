@@ -10,7 +10,8 @@ import {
   PRICE_TICK_SIZE
 } from './config';
 import { log, sleep, roundToTick, formatPrice, formatSize } from './utils';
-import { Order, OrderBook, MarketData, Position, MarketMakingConfig } from './types';
+import { Order, OrderBook, MarketData, Position, MarketMakingConfig, OrderSide } from './types';
+import { TelegramService } from './telegram';
 
 export class MarketMakingBot {
   private config: MarketMakingConfig;
@@ -19,6 +20,7 @@ export class MarketMakingBot {
   private activeOrders: Map<string, Order> = new Map();
   private ws: WebSocket | null = null;
   private isRunning: boolean = false;
+  private telegram: TelegramService;
 
   constructor() {
     this.config = {
@@ -29,11 +31,50 @@ export class MarketMakingBot {
       updateIntervalMs: UPDATE_INTERVAL_MS,
       priceTickSize: PRICE_TICK_SIZE
     };
+    this.telegram = new TelegramService();
+    this.setupTelegramCommands();
+  }
+
+  private setupTelegramCommands(): void {
+    if (!this.telegram.isEnabled()) return;
+
+    // Status command
+    this.telegram.registerCommandHandler('status', async (msg) => {
+      await this.telegram.sendStatus(
+        {
+          symbol: this.config.symbol,
+          spreadPercentage: this.config.spreadPercentage,
+          orderSize: this.config.orderSize,
+          maxPositionSize: this.config.maxPositionSize,
+          updateIntervalMs: this.config.updateIntervalMs,
+          isRunning: this.isRunning
+        },
+        this.currentPosition,
+        this.activeOrders.size
+      );
+    });
+
+    // Position command
+    this.telegram.registerCommandHandler('position', async (msg) => {
+      await this.telegram.sendPositionUpdate(this.currentPosition);
+    });
+
+    // Orders command
+    this.telegram.registerCommandHandler('orders', async (msg) => {
+      const orders = Array.from(this.activeOrders.values());
+      await this.telegram.sendActiveOrders(orders);
+    });
   }
 
   async start(): Promise<void> {
     log.info(`Starting market making bot for ${this.config.symbol}`);
     this.isRunning = true;
+
+    await this.telegram.sendNotification(
+      'Bot Started',
+      `Market making bot started for ${this.config.symbol}`,
+      '🚀'
+    );
 
     // Initialize connection and fetch initial data
     await this.initialize();
@@ -56,6 +97,7 @@ export class MarketMakingBot {
       log.success('Initialization complete');
     } catch (error: any) {
       log.error(`Initialization failed: ${error.message}`);
+      await this.telegram.sendError(`Initialization failed: ${error.message}`);
       throw error;
     }
   }
@@ -106,6 +148,7 @@ export class MarketMakingBot {
           unrealizedPnl: parseFloat(positionData.unrealizedPnl || '0')
         };
         log.info(`Current position: ${formatSize(this.currentPosition.size)} @ ${formatPrice(this.currentPosition.entryPrice)}`);
+        await this.telegram.sendPositionUpdate(this.currentPosition);
       } else {
         this.currentPosition = null;
         log.info('No open position');
@@ -142,12 +185,14 @@ export class MarketMakingBot {
           }
         });
         
-        this.ws.on('error', (error: Error) => {
+        this.ws.on('error', async (error: Error) => {
           log.error(`WebSocket error: ${error.message}`);
+          await this.telegram.sendError(`WebSocket error: ${error.message}`);
         });
         
-        this.ws.on('close', () => {
+        this.ws.on('close', async () => {
           log.warn('WebSocket closed');
+          await this.telegram.sendInfo('WebSocket connection closed. Attempting to reconnect...');
           if (this.isRunning) {
             // Attempt to reconnect
             setTimeout(() => this.connectWebSocket(), 5000);
@@ -198,6 +243,7 @@ export class MarketMakingBot {
         await sleep(this.config.updateIntervalMs);
       } catch (error: any) {
         log.error(`Error in market making loop: ${error.message}`);
+        await this.telegram.sendError(`Market making loop error: ${error.message}`);
         await sleep(this.config.updateIntervalMs);
       }
     }
@@ -270,9 +316,11 @@ export class MarketMakingBot {
       this.activeOrders.set(orderId, order);
       
       log.success(`Order placed: ${orderId}`);
-    } catch (error: any) {
-      log.error(`Failed to place ${side} order: ${error.message}`);
-    }
+      await this.telegram.sendOrderPlaced(order);
+      } catch (error: any) {
+        log.error(`Failed to place ${side} order: ${error.message}`);
+        await this.telegram.sendError(`Failed to place ${side} order: ${error.message}`);
+      }
   }
 
   private async cancelAllOrders(): Promise<void> {
@@ -289,8 +337,10 @@ export class MarketMakingBot {
         // });
         
         this.activeOrders.delete(orderId);
+        await this.telegram.sendOrderCancelled(orderId);
       } catch (error: any) {
         log.error(`Failed to cancel order ${orderId}: ${error.message}`);
+        await this.telegram.sendError(`Failed to cancel order ${orderId}: ${error.message}`);
       }
     }
   }
@@ -304,6 +354,9 @@ export class MarketMakingBot {
     
     if (positionSize > this.config.maxPositionSize * 0.8) {
       log.warn(`Position size (${formatSize(positionSize)}) approaching limit`);
+      await this.telegram.sendAlert(
+        `Position size (${formatSize(positionSize)}) approaching limit of ${formatSize(this.config.maxPositionSize)}`
+      );
       // Implement position reduction logic if needed
     }
   }
@@ -311,6 +364,12 @@ export class MarketMakingBot {
   async stop(): Promise<void> {
     log.info('Stopping market making bot...');
     this.isRunning = false;
+    
+    await this.telegram.sendNotification(
+      'Bot Stopped',
+      'Market making bot is shutting down',
+      '🛑'
+    );
     
     // Cancel all active orders
     await this.cancelAllOrders();
@@ -321,5 +380,17 @@ export class MarketMakingBot {
     }
     
     log.success('Bot stopped');
+  }
+
+  // Method to handle order fills (call this when orders are filled)
+  async handleOrderFill(orderId: string, fillPrice: number): Promise<void> {
+    const order = this.activeOrders.get(orderId);
+    if (order) {
+      await this.telegram.sendOrderFilled(order, fillPrice);
+      this.activeOrders.delete(orderId);
+      
+      // Update position after fill
+      await this.fetchPosition();
+    }
   }
 }

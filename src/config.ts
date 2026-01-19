@@ -17,6 +17,11 @@ const MAX_POSITION_SIZE = parseFloat(process.env.MAX_POSITION_SIZE || "1.0"); //
 const UPDATE_INTERVAL_MS = parseInt(process.env.UPDATE_INTERVAL_MS || "1000"); // How often to update quotes
 const PRICE_TICK_SIZE = parseFloat(process.env.PRICE_TICK_SIZE || "0.01"); // Minimum price movement
 
+// Telegram Configuration
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
+const TELEGRAM_ENABLED = process.env.TELEGRAM_ENABLED === "true";
+
 export {
   HYPERLIQUID_API_URL,
   HYPERLIQUID_WS_URL,
@@ -27,5 +32,8 @@ export {
   ORDER_SIZE,
   MAX_POSITION_SIZE,
   UPDATE_INTERVAL_MS,
-  PRICE_TICK_SIZE
+  PRICE_TICK_SIZE,
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_CHAT_ID,
+  TELEGRAM_ENABLED
 }

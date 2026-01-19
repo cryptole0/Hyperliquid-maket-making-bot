@@ -1,6 +1,6 @@
 # Hyperliquid Market Making Bot
 
-A sophisticated market making bot for Hyperliquid DEX that provides liquidity by continuously quoting buy and sell prices, earning profits from bid-ask spreads.
+A market making bot for Hyperliquid DEX that provides liquidity by continuously quoting buy and sell prices, earning profits from bid-ask spreads.
 
 ## Overview
 
@@ -20,6 +20,7 @@ This bot is designed for high-volume traders who want to automate liquidity prov
 - **Configurable Parameters**: Adjustable spread, order size, position limits, and update intervals
 - **Order Management**: Automatic order placement and cancellation
 - **Error Handling**: Robust error handling with automatic reconnection
+- **Telegram Notifications**: Real-time alerts and monitoring via Telegram bot
 
 ## Prerequisites
 
@@ -60,6 +61,11 @@ ORDER_SIZE=0.01
 MAX_POSITION_SIZE=1.0
 UPDATE_INTERVAL_MS=1000
 PRICE_TICK_SIZE=0.01
+
+# Telegram Configuration (Optional)
+TELEGRAM_ENABLED=true
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHAT_ID=your_telegram_chat_id
 ```
 
 ## Configuration
@@ -75,6 +81,9 @@ PRICE_TICK_SIZE=0.01
 - `MAX_POSITION_SIZE`: Maximum position size allowed
 - `UPDATE_INTERVAL_MS`: How often to update quotes (milliseconds)
 - `PRICE_TICK_SIZE`: Minimum price movement
+- `TELEGRAM_ENABLED`: Enable/disable Telegram notifications (true/false)
+- `TELEGRAM_BOT_TOKEN`: Your Telegram bot token from @BotFather
+- `TELEGRAM_CHAT_ID`: Your Telegram chat ID for receiving notifications
 
 ## Usage
 
@@ -100,6 +109,49 @@ npm start
 3. **Position Management**: Monitors position size and prevents exceeding limits
 4. **Order Management**: Automatically cancels and replaces orders to maintain quotes
 
+## Telegram Integration
+
+The bot includes comprehensive Telegram notifications for monitoring and control:
+
+### Setup
+
+1. Create a Telegram bot by messaging [@BotFather](https://t.me/BotFather) on Telegram
+2. Get your bot token from BotFather
+3. Get your chat ID by messaging your bot and visiting: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+4. Add the credentials to your `.env` file
+
+### Features
+
+- **Real-time Notifications**: Receive alerts for:
+  - Bot start/stop events
+  - Order placements and fills
+  - Order cancellations
+  - Position updates
+  - Errors and warnings
+  - Position limit alerts
+
+### Commands
+
+You can interact with the bot via Telegram commands:
+
+- `/start` - Start the bot and see available commands
+- `/help` - Show help message
+- `/status` - Get current bot status, configuration, and position
+- `/position` - View detailed position information
+- `/orders` - List all active orders
+
+### Notifications
+
+The bot automatically sends notifications for:
+- 🚀 Bot startup
+- 🛑 Bot shutdown
+- 🟢 Buy orders placed/filled
+- 🔴 Sell orders placed/filled
+- ❌ Order cancellations
+- 📈 Position updates
+- 🚨 Alerts (position limits, errors)
+- ⚠️ Error messages
+
 ## Risk Management
 
 - Maximum position size limits prevent excessive exposure
@@ -109,7 +161,6 @@ npm start
 
 ## Important Notes
 
-⚠️ **Disclaimer**: Trading cryptocurrencies involves substantial risk. This bot is provided as-is for educational purposes. Always:
 - Test thoroughly on testnet before using real funds
 - Start with small position sizes
 - Monitor the bot closely
